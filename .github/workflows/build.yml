@@ -10,13 +10,11 @@ jobs:
         with:
           repository: ingelabs/jamvm
 
-      - name: Set up Java 8
-        run: |
-          export JAVA_HOME=$JAVA_HOME_8_X64
-          export PATH=$JAVA_HOME/bin:$PATH
-
       - name: Build JamVM
         run: |
+          export JAVA_HOME=$JAVA_HOME_8_X64
+          export PATH=$JAVA_HOME/bin:$PATH        
+          java -version
           ./autogen.sh
           ./configure
           make && sudo make install      
