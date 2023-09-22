@@ -4,16 +4,21 @@ on: pull_request
 jobs:
   build:
     runs-on: ubuntu-20.04
+    env:
+      JAVA_HOME: ${{ env.JAVA_HOME_8_X64 }}
+
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get -qq update
-          sudo apt-get -qq install gettext libgtk2.0-dev libgconf2-dev
+          #sudo apt-get -qq update
+          #sudo apt-get -qq install gettext libgtk2.0-dev libgconf2-dev
 
       - name: Set up Java 8
         run: |
+          cat $GITHUB_ENV
           echo "{JAVA_HOME}={$JAVA_HOME_8_X64}" >> "$GITHUB_ENV"
           echo "{PATH}={$JAVA_HOME/bin:$PATH}"  >> "$GITHUB_ENV"
+          cat $GITHUB_ENV
 
       - name: Check out Classpath
         uses: actions/checkout@v4
