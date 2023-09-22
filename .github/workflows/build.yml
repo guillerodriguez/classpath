@@ -2,7 +2,6 @@ name: Build
 on: pull_request
 
 jobs:
-  deps:
     runs-on: ubuntu-20.04
     steps:
       - name: Install dependencies
@@ -10,33 +9,11 @@ jobs:
           sudo apt-get -qq update
           sudo apt-get -qq install gettext libgtk2.0-dev libgconf2-dev
 
-  checkout:          
-    runs-on: ubuntu-20.04
-    steps:
       - name: Check out Classpath
         uses: actions/checkout@v4
-        with:
-          path: classpath
-      
-      - name: Check out JamVM
-        uses: actions/checkout@v4
-        with:
-          repository: ingelabs/jamvm
-          path: jamvm
 
-      - name: Check out Malva
-        uses: actions/checkout@v4
-        with:
-          repository: ingelabs/malva
-          path: malva
-
-  build:
-    runs-on: ubuntu-20.04
-    needs: [deps, checkout]
-    steps:
       - name: Build GNU Classpath
         run: |
-          cd classpath
           java -version
           ./autogen.sh
           ./configure \
@@ -46,6 +23,12 @@ jobs:
             --disable-gjdoc
           make && sudo make install
 
+      - name: Check out JamVM
+        uses: actions/checkout@v4
+        with:
+          repository: ingelabs/jamvm
+          path: jamvm
+
       - name: Build JamVM
         run: |
           cd jamvm
@@ -54,6 +37,12 @@ jobs:
           ./autogen.sh
           ./configure
           make && sudo make install      
+
+      - name: Check out Malva
+        uses: actions/checkout@v4
+        with:
+          repository: ingelabs/malva
+          path: malva
 
       - name: Run tests
         run: |
