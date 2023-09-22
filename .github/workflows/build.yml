@@ -24,8 +24,9 @@ jobs:
           ./configure \
             --disable-plugin \
             --disable-examples \
+            --disable-tools \
             --disable-gjdoc
-          make && make install
+          make && sudo make install
 
       - name: Check out Malva
         uses: actions/checkout@v3
