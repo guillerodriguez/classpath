@@ -14,18 +14,18 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Check out Classpath
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: classpath
       
       - name: Check out JamVM
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ingelabs/jamvm
           path: jamvm
 
       - name: Check out Malva
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ingelabs/malva
           path: malva
