@@ -25,4 +25,15 @@ jobs:
             --disable-plugin \
             --disable-examples \
             --disable-gjdoc
-          make
+          make && make install
+
+      - name: Check out Malva
+        uses: actions/checkout@v3
+        with:
+          repository: ingelabs/malva
+          path: malva
+
+      - name: Run tests
+        run: |
+          cd malva; make check
+
