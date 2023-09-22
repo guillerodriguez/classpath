@@ -12,16 +12,18 @@ jobs:
 
       - name: Set up Java 8
         run: |
-          cat $GITHUB_ENV
           echo "{JAVA_HOME}={$JAVA_HOME_8_X64}" >> "$GITHUB_ENV"
-          echo "{PATH}={$JAVA_HOME_8_X64/bin:$PATH}" >> "$GITHUB_ENV"
+          echo "{$JAVA_HOME_8_X64/bin}" >> "$GITHUB_PATH"
           cat $GITHUB_ENV
+          cat $GITHUB_PATH
 
       - name: Check out Classpath
         uses: actions/checkout@v4
 
       - name: Build GNU Classpath
         run: |
+          echo $PATH
+          echo $JAVA_HOME
           javac -version
           ./autogen.sh
           ./configure \
