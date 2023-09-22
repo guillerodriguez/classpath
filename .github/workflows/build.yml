@@ -7,6 +7,17 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
+        with:
+          repository: ingelabs/jamvm
+
+      - name: Build JamVM
+        run: |
+          ./autogen.sh
+          ./configure
+          make && sudo make install      
+
+      - name: Check out code
+        uses: actions/checkout@v3
 
       - name: Set up Java 8
         run: |
@@ -36,5 +47,6 @@ jobs:
 
       - name: Run tests
         run: |
-          cd malva; make check
+          cd malva
+          JAVA=jamvm make check
 
