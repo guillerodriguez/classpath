@@ -15,7 +15,7 @@ jobs:
 
       - name: Build GNU Classpath
         run: |
-          java -version
+          javac -version
           ./autogen.sh
           ./configure \
             --disable-plugin \
@@ -45,10 +45,10 @@ jobs:
           repository: ingelabs/malva
           path: malva
 
-      - name: Run tests
+      - name: Build Malva and run tests
         run: |
           cd malva
           export JAVA_HOME=$JAVA_HOME_8_X64
           export PATH=$JAVA_HOME/bin:$PATH
-          JAVA=jamvm make check
+          JAVA=/usr/local/jamvm/bin/jamvm make check
 
