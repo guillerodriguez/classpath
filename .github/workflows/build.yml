@@ -62,8 +62,9 @@ jobs:
       - name: Install dependencies
         run: |
           brew install automake libtool
-          ln -sf "$(brew --prefix gettext)/share/aclocal/gettext.m4" "$(aclocal --print-ac-dir)/"
           echo "$(brew --prefix libtool)/libexec/gnubin" >> $GITHUB_PATH
+          # Work around https://github.com/Homebrew/homebrew-core/issues/53192
+          ln -sf "$(brew --prefix gettext)/share/gettext/m4/"*.m4 "$(aclocal --print-ac-dir)/"
 
       - name: Set up Java 8
         uses: actions/setup-java@v5
