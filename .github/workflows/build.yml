@@ -62,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install automake libtool
-          brew link --force gettext
+          ln -sf "$(brew --prefix gettext)/share/aclocal/gettext.m4" "$(aclocal --print-ac-dir)/"
           echo "$(brew --prefix libtool)/libexec/gnubin" >> $GITHUB_PATH
 
       - name: Set up Java 8
