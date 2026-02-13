@@ -79,11 +79,11 @@ jobs:
         run: |
           ./autogen.sh
           ./configure \
-            --disable-alsa \
-            --disable-dssi \
             --disable-gconf-peer \
             --enable-default-preferences-peer=file \
             --disable-gtk-peer \
+            --disable-alsa \
+            --disable-dssi \
             --disable-plugin \
             --disable-examples \
             --disable-tools \
