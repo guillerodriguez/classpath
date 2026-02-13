@@ -68,7 +68,12 @@ jobs:
 
       - name: Install dependencies
         run: |
+<<<<<<< Updated upstream
           brew install automake libtool gettext
+=======
+          brew install automake libtool
+          brew link --force gettext
+>>>>>>> Stashed changes
           echo "$(brew --prefix libtool)/libexec/gnubin" >> $GITHUB_PATH
 
       - name: Check out Classpath
