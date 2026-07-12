@@ -39,14 +39,14 @@ exception statement from your version. */
    process spawn (dup2 of the stdio pipe fds, closing them, an optional
    chdir, and the PATH search) and finally execs the target binary.
 
-   It exists so that the vfork() path in cpproc.c can be safe: a vfork()
-   child shares the parent's address space and may do nothing but exec
-   or _exit. The parent's vfork() child therefore only execs this
-   helper; by the time the helper runs, it is a fresh process with its
-   own address space, so it may freely do all the work that would be
-   unsafe in the vfork() child itself.
+   It exists so that cpproc.c can call posix_spawn() with no file
+   actions and no attributes: all the child-side setup is done here, in
+   a fresh process after the exec, instead of through file actions
+   executed between fork/vfork and exec. Keeping the file actions empty
+   also lets posix_spawn use its vfork()/clone(CLONE_VFORK) fast path
+   even on old glibc, where any file action would force a plain fork().
 
-   It is invoked by cpproc_forkAndExec (via execve) with:
+   It is invoked by cpproc_forkAndExec (via posix_spawn) with:
 
      argv[0]  helper path
      argv[1]  fail_fd     - write end of the parent's failure pipe

@@ -48,32 +48,14 @@ exception statement from your version. */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#ifdef HAVE_POSIX_SPAWN
+/* The posix_spawn path requires both posix_spawn() itself and the
+   compiled-in location of the spawn helper. */
+#if defined(HAVE_POSIX_SPAWN) && defined(CP_SPAWN_HELPER)
+# define CP_USE_POSIX_SPAWN 1
 # include <spawn.h>
 #endif
 
 extern char **environ;
-
-#ifdef HAVE_POSIX_SPAWN
-
-/* Return the path to the spawn helper executable, or NULL if none is
-   available. The GNU_CLASSPATH_SPAWN_HELPER environment variable
-   overrides the compiled-in location; this is mainly useful for
-   testing against an uninstalled build tree. */
-static const char *cp_spawn_helper_path(void)
-{
-  const char *p = getenv("GNU_CLASSPATH_SPAWN_HELPER");
-
-  if (p != NULL && *p != '\0')
-    return p;
-#ifdef CP_SPAWN_HELPER
-  return CP_SPAWN_HELPER;
-#else
-  return NULL;
-#endif
-}
-
-#endif /* HAVE_POSIX_SPAWN */
 
 int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 			int *fds, int pipe_count, pid_t *out_pid,
@@ -88,8 +70,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
   int argc;
   int i;
   pid_t pid;
-#ifdef HAVE_POSIX_SPAWN
-  const char *helper = NULL;
+#ifdef CP_USE_POSIX_SPAWN
   char **helper_argv = NULL;
   int do_spawn = 0;
 #endif
@@ -106,23 +87,18 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
   for (argc = 0; commandLine[argc] != NULL; argc++)
     ;
 
-#ifdef HAVE_POSIX_SPAWN
+#ifdef CP_USE_POSIX_SPAWN
   /* By default the target is spawned through the helper via
      posix_spawn; the classic fork() path below is used only when
      explicitly requested (use_fork, see the gnu.lang.process.useFork
      system property) or when posix_spawn or the helper is not
-     available. We deliberately pass no file actions and no
-     attributes to posix_spawn: the helper does all the child-side
-     work (dup2, close, chdir, PATH search) after it execs, and empty
-     file actions let posix_spawn use vfork()/clone(CLONE_VFORK) even
-     on old glibc, without the non-portable POSIX_SPAWN_USEVFORK
-     flag. */
-  if (!use_fork)
-    {
-      helper = cp_spawn_helper_path();
-      if (helper != NULL)
-	do_spawn = 1;
-    }
+     available at build time. We deliberately pass no file actions
+     and no attributes to posix_spawn: the helper does all the
+     child-side work (dup2, close, chdir, PATH search) after it
+     execs, and empty file actions let posix_spawn use
+     vfork()/clone(CLONE_VFORK) even on old glibc, without the
+     non-portable POSIX_SPAWN_USEVFORK flag. */
+  do_spawn = !use_fork;
 #else
   (void) use_fork;
 #endif
@@ -132,7 +108,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
      may run, so no malloc there: preallocate its buffer now. The
      posix_spawn path does not need this (the helper allocates as
      usual). */
-#ifdef HAVE_POSIX_SPAWN
+#ifdef CP_USE_POSIX_SPAWN
   if (!do_spawn)
 #endif
     {
@@ -167,7 +143,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
       return err;
     }
 
-#ifdef HAVE_POSIX_SPAWN
+#ifdef CP_USE_POSIX_SPAWN
   if (do_spawn)
     {
       char numbuf[8][16];
@@ -202,7 +178,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 	  return ENOMEM;
 	}
 
-      helper_argv[k++] = (char *) helper;
+      helper_argv[k++] = (char *) CP_SPAWN_HELPER;
       snprintf(numbuf[nb], sizeof(numbuf[nb]), "%d", fail_fds[1]);
       helper_argv[k++] = numbuf[nb++];
       snprintf(numbuf[nb], sizeof(numbuf[nb]), "%d", pipe_count);
@@ -222,9 +198,9 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 
       /* No file actions and no attributes: the helper does the child
 	 setup, and this keeps posix_spawn on its vfork path. */
-      sperr = posix_spawn(&pid, helper, NULL, NULL, helper_argv, child_env);
+      sperr = posix_spawn(&pid, CP_SPAWN_HELPER, NULL, NULL, helper_argv,
+			  child_env);
       free(helper_argv);
-      helper_argv = NULL;
 
       if (sperr != 0)
 	{
@@ -237,7 +213,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 	}
     }
   else
-#endif /* HAVE_POSIX_SPAWN */
+#endif /* CP_USE_POSIX_SPAWN */
     {
       pid = fork();
 

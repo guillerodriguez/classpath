@@ -9,10 +9,9 @@ libclasspathnative_la_SOURCES = cpnet.c \
 				cpexec.h \
 				cpexec.c
 
-# Helper executable used by the vfork-based process spawn path in
-# cpproc.c. Installed next to the native libraries; cpproc.c gets its
-# location baked in via -DCP_SPAWN_HELPER (overridable at runtime with
-# the GNU_CLASSPATH_SPAWN_HELPER environment variable). It is a plain
+# Helper executable used by the posix_spawn-based process spawn path
+# in cpproc.c. Installed next to the native libraries; cpproc.c gets
+# its location baked in via -DCP_SPAWN_HELPER. It is a plain
 # standalone binary (libc only, no JNI/libtool), so it overrides the
 # libtool convenience LDFLAGS used by the convenience library.
 nativeexeclib_PROGRAMS = gcpspawnhelper
