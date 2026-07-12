@@ -124,7 +124,7 @@ JNIEXPORT void JNICALL
 Java_java_lang_VMProcess_nativeSpawn (JNIEnv * env, jobject this,
 				      jobjectArray cmdArray,
 				      jobjectArray envArray, jobject dirFile,
-				      jboolean redirect, jboolean useVfork)
+				      jboolean redirect, jboolean useFork)
 {
   int fds[CPIO_EXEC_NUM_PIPES];
   jobject streams[CPIO_EXEC_NUM_PIPES] = { NULL, NULL, NULL };
@@ -207,7 +207,7 @@ Java_java_lang_VMProcess_nativeSpawn (JNIEnv * env, jobject this,
 
   /* Create inter-process pipes */
   err = cpproc_forkAndExec(strings, newEnviron, fds, pipe_count, &pid, dir,
-			   useVfork != JNI_FALSE);
+			   useFork != JNI_FALSE);
   if (err != 0)
     {
       strncpy(errbuf, cpnative_getErrorString (err), sizeof(errbuf));

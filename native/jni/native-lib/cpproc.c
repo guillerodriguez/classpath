@@ -77,7 +77,7 @@ static const char *cp_spawn_helper_path(void)
 
 int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 			int *fds, int pipe_count, pid_t *out_pid,
-			const char *wd, int use_vfork)
+			const char *wd, int use_fork)
 {
   int local_fds[6];
   int fail_fds[2];
@@ -107,20 +107,24 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
     ;
 
 #ifdef HAVE_POSIX_SPAWN
-  /* When requested, spawn the target through the helper via
-     posix_spawn. We deliberately pass no file actions and no
-     attributes: the helper does all the child-side work (dup2, close,
-     chdir, PATH search) after it execs, and empty file actions let
-     posix_spawn use vfork()/clone(CLONE_VFORK) even on old glibc,
-     without the non-portable POSIX_SPAWN_USEVFORK flag. */
-  if (use_vfork)
+  /* By default the target is spawned through the helper via
+     posix_spawn; the classic fork() path below is used only when
+     explicitly requested (use_fork, see the gnu.lang.process.useFork
+     system property) or when posix_spawn or the helper is not
+     available. We deliberately pass no file actions and no
+     attributes to posix_spawn: the helper does all the child-side
+     work (dup2, close, chdir, PATH search) after it execs, and empty
+     file actions let posix_spawn use vfork()/clone(CLONE_VFORK) even
+     on old glibc, without the non-portable POSIX_SPAWN_USEVFORK
+     flag. */
+  if (!use_fork)
     {
       helper = cp_spawn_helper_path();
       if (helper != NULL)
 	do_spawn = 1;
     }
 #else
-  (void) use_vfork;
+  (void) use_fork;
 #endif
 
   /* The fork path executes cp_execvpe in the child, where after the
