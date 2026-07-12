@@ -87,6 +87,20 @@ final class VMProcess extends Process
   static long reapedPid;
   static int reapedExitValue;
 
+  // Whether to spawn processes with vfork() rather than fork().
+  // Controlled by the gnu.lang.process.useVfork system property
+  // (true/false); when the property is unset it defaults to true on
+  // Linux and false everywhere else. The native code falls back to
+  // fork() if vfork() or the spawn helper is unavailable.
+  static final boolean useVfork;
+  static
+  {
+    String prop = System.getProperty("gnu.lang.process.useVfork");
+    useVfork = (prop != null)
+      ? prop.equalsIgnoreCase("true")
+      : "Linux".equals(System.getProperty("os.name"));
+  }
+
   // Information about this process
   int state;                                   // current state of process
   final String[] cmd;                          // copied from Runtime.exec()
@@ -217,7 +231,7 @@ final class VMProcess extends Process
           try
             {
               process.nativeSpawn(process.cmd, process.env, process.dir,
-                                  process.redirect);
+                                  process.redirect, useVfork);
               process.state = RUNNING;
               activeMap.put(new Long(process.pid), process);
             }
@@ -425,7 +439,7 @@ final class VMProcess extends Process
    * @throws IOException if the O/S process could not be created.
    */
   native void nativeSpawn(String[] cmd, String[] env, File dir,
-                          boolean redirect)
+                          boolean redirect, boolean useVfork)
     throws IOException;
 
   /**

@@ -574,14 +574,18 @@ for all three by Classpath, making VM implementation optional.  These use
 the POSIX functions, @code{fork()}, @code{waitpid()} and @code{kill()}.
 
 @itemize @bullet
-@item @code{nativeSpawn(String[],String[],File,boolean)} -- The VM should
-create a new process which uses the specified command-line arguments,
+@item @code{nativeSpawn(String[],String[],File,boolean,boolean)} -- The VM
+should create a new process which uses the specified command-line arguments,
 environment variables and working directory.  Unlike the other two
 methods, this method is linked to an instance, and must call
-@code{setProcessInfo()} with the results before returning.  The
+@code{setProcessInfo()} with the results before returning.  The first
 boolean argument maps to the @code{redirectErrorStream} property of
 @code{java.lang.ProcessBuilder}.  When true, the output and error streams
-are merged.
+are merged.  The second boolean argument requests that the process be
+spawned with @code{vfork()} rather than @code{fork()} (see the
+@code{gnu.lang.process.useVfork} system property); the reference native
+implementation falls back to @code{fork()} when @code{vfork()} or its
+spawn helper is unavailable.
 @item @code{nativeReap()} -- This is called to perform a reap of any
 zombie processes, and should not block, instead returning a boolean as to
 whether reaping actually took place.

@@ -1,5 +1,5 @@
-/* cpproc.h -
-   Copyright (C) 2006  Free Software Foundation, Inc.
+/* cpexec.h -
+   Copyright (C) 2026  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -34,20 +34,26 @@ or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
-#ifndef _CLASSPATH_PROC_H_INCLUDED
-#define _CLASSPATH_PROC_H_INCLUDED
+#ifndef _CLASSPATH_EXEC_H_INCLUDED
+#define _CLASSPATH_EXEC_H_INCLUDED
 
-#include <sys/types.h>
+/* Close the first numFds file descriptors listed in fds. */
+void cp_close_all_fds (int *fds, int numFds);
 
-#define CPIO_EXEC_STDIN 0
-#define CPIO_EXEC_STDOUT 1
-#define CPIO_EXEC_STDERR 2
-#define CPIO_EXEC_NUM_PIPES 3
+/* Like execve, but also implementing execvp's "shell fallback"
+   behaviour: if execve fails with ENOEXEC, try to execute as a
+   script via /bin/sh. If envp is NULL the environment is inherited.
+   The supplied preallocated sh_argv array must have room for one
+   entry more than argv, including its terminating NULL. */
+void cp_execve_sh (const char *file, char * const *argv,
+		   char * const *envp, char **sh_argv);
 
-JNIEXPORT int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
-				  int *fds, int pipe_count, pid_t *pid, const char *wd,
-				  int use_vfork);
-JNIEXPORT int cpproc_waitpid (pid_t pid, int *status, pid_t *outpid, int options);
-JNIEXPORT int cpproc_kill (pid_t pid, int signal);
+/* Replacement for execvpe, which is a GNU extension and not available
+   everywhere. If envp is NULL the environment is inherited. The
+   supplied preallocated sh_argv array must have room for one entry
+   more than argv, including its terminating NULL. */
+void cp_execvpe (const char *file, char * const *argv,
+		 char * const *envp, const char *path,
+		 char **sh_argv);
 
 #endif
