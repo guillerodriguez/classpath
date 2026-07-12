@@ -456,13 +456,8 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  lstat readlink \
  		  inet_aton inet_addr inet_pton \
 		  getifaddrs kqueue kevent epoll_create \
+                  posix_spawn \
                   getloadavg])
-
-  dnl Detect a working fork/vfork. This defines HAVE_WORKING_VFORK
-  dnl (used to enable the vfork-based process spawn path) and, where
-  dnl vfork is unavailable or broken, arranges for vfork() to fall
-  dnl back to fork(). Also checks for <vfork.h>.
-  AC_FUNC_FORK
 
   LIBMAGIC=
   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)

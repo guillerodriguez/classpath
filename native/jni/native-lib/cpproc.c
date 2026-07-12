@@ -48,13 +48,13 @@ exception statement from your version. */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#if HAVE_VFORK_H
-# include <vfork.h>
+#ifdef HAVE_POSIX_SPAWN
+# include <spawn.h>
 #endif
 
 extern char **environ;
 
-#ifdef HAVE_WORKING_VFORK
+#ifdef HAVE_POSIX_SPAWN
 
 /* Return the path to the spawn helper executable, or NULL if none is
    available. The GNU_CLASSPATH_SPAWN_HELPER environment variable
@@ -73,32 +73,7 @@ static const char *cp_spawn_helper_path(void)
 #endif
 }
 
-/* vfork() the spawn helper. This is kept in its own (non-inlined)
-   function on purpose: the vfork() child shares the parent's address
-   space and stack, so it may do nothing but exec or _exit. Confining
-   vfork() here guarantees no other local variable of the caller can be
-   clobbered by the child, and keeps the child path to the bare minimum
-   (execve of the helper, _exit on failure). All the "dangerous"
-   child-side work (dup2, close, chdir, PATH search) is done by the
-   helper *after* it has exec'd into a fresh address space. */
-#if defined(__GNUC__)
-__attribute__((__noinline__))
-#endif
-static pid_t cp_vfork_exec(const char *helper, char * const *helper_argv,
-			   char * const *child_env)
-{
-  pid_t pid = vfork();
-
-  if (pid == 0)
-    {
-      execve(helper, helper_argv, child_env);
-      _exit(127);
-    }
-
-  return pid;
-}
-
-#endif /* HAVE_WORKING_VFORK */
+#endif /* HAVE_POSIX_SPAWN */
 
 int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 			int *fds, int pipe_count, pid_t *out_pid,
@@ -113,10 +88,10 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
   int argc;
   int i;
   pid_t pid;
-#ifdef HAVE_WORKING_VFORK
+#ifdef HAVE_POSIX_SPAWN
   const char *helper = NULL;
   char **helper_argv = NULL;
-  int do_vfork = 0;
+  int do_spawn = 0;
 #endif
 
   /* Initialize the output fds so that the caller sees no garbage in
@@ -131,14 +106,18 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
   for (argc = 0; commandLine[argc] != NULL; argc++)
     ;
 
-#ifdef HAVE_WORKING_VFORK
-  /* Use the vfork path only when requested and a helper is actually
-     available; otherwise fall back to the plain fork path below. */
+#ifdef HAVE_POSIX_SPAWN
+  /* When requested, spawn the target through the helper via
+     posix_spawn. We deliberately pass no file actions and no
+     attributes: the helper does all the child-side work (dup2, close,
+     chdir, PATH search) after it execs, and empty file actions let
+     posix_spawn use vfork()/clone(CLONE_VFORK) even on old glibc,
+     without the non-portable POSIX_SPAWN_USEVFORK flag. */
   if (use_vfork)
     {
       helper = cp_spawn_helper_path();
-      if (helper != NULL && access(helper, X_OK) == 0)
-	do_vfork = 1;
+      if (helper != NULL)
+	do_spawn = 1;
     }
 #else
   (void) use_vfork;
@@ -146,10 +125,11 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 
   /* The fork path executes cp_execvpe in the child, where after the
      fork of a multi-threaded process only async-signal-safe operations
-     may run, so no malloc there: preallocate its buffer now. The vfork
-     path does not need this (the helper allocates as usual). */
-#ifdef HAVE_WORKING_VFORK
-  if (!do_vfork)
+     may run, so no malloc there: preallocate its buffer now. The
+     posix_spawn path does not need this (the helper allocates as
+     usual). */
+#ifdef HAVE_POSIX_SPAWN
+  if (!do_spawn)
 #endif
     {
       sh_argv = malloc((argc + 2) * sizeof(char *));
@@ -183,13 +163,14 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
       return err;
     }
 
-#ifdef HAVE_WORKING_VFORK
-  if (do_vfork)
+#ifdef HAVE_POSIX_SPAWN
+  if (do_spawn)
     {
       char numbuf[8][16];
       char * const *child_env = (newEnviron != NULL) ? newEnviron : environ;
       int k = 0;
       int nb = 0;
+      int sperr;
 
       /* The parent's read end must not leak into the helper or the
 	 target; the write end must survive the exec of the helper (the
@@ -205,8 +186,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 	  return err;
 	}
 
-      /* All marshalling happens here, in the parent, before vfork().
-	 The helper argv is:
+      /* All marshalling happens in the parent. The helper argv is:
 	   helper fail_fd pipe_count fd0..fdN hasDir dir path -- argv... */
       helper_argv = malloc((1 + 1 + 1 + pipe_count * 2 + 1 + 1 + 1 + 1
 			    + argc + 1) * sizeof(char *));
@@ -236,10 +216,24 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 	helper_argv[k++] = commandLine[i];
       helper_argv[k] = NULL;
 
-      pid = cp_vfork_exec(helper, helper_argv, child_env);
+      /* No file actions and no attributes: the helper does the child
+	 setup, and this keeps posix_spawn on its vfork path. */
+      sperr = posix_spawn(&pid, helper, NULL, NULL, helper_argv, child_env);
+      free(helper_argv);
+      helper_argv = NULL;
+
+      if (sperr != 0)
+	{
+	  /* posix_spawn could not even exec the helper (e.g. it is
+	     missing); nothing was started, so just report the error. */
+	  cp_close_all_fds(local_fds, pipe_count * 2);
+	  close(fail_fds[0]);
+	  close(fail_fds[1]);
+	  return sperr;
+	}
     }
   else
-#endif /* HAVE_WORKING_VFORK */
+#endif /* HAVE_POSIX_SPAWN */
     {
       pid = fork();
 
@@ -271,7 +265,7 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 	}
     }
 
-  /* Parent (and fork/vfork error) handling from here on. */
+  /* Parent (and fork error) handling from here on. */
 
   if (pid == -1)
     {
@@ -281,16 +275,10 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
       close(fail_fds[0]);
       close(fail_fds[1]);
       free(sh_argv);
-#ifdef HAVE_WORKING_VFORK
-      free(helper_argv);
-#endif
       return err;
     }
 
   free(sh_argv);
-#ifdef HAVE_WORKING_VFORK
-  free(helper_argv);
-#endif
   close(fail_fds[1]);
 
   /* Wait for the outcome of the exec: EOF if it succeeded, the
