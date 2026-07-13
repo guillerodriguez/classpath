@@ -58,11 +58,15 @@ exception statement from your version. */
      argv[..] "--"        - separator
      argv[..]             - the target argv (NULL-terminated)
 
-   The helper's own environment is the target's environment. On any
-   failure the helper writes its errno to fail_fd and _exit()s; on
-   success the exec of the target closes fail_fd (FD_CLOEXEC) and the
-   parent reads EOF. This is the same failure protocol the parent uses
-   for the plain fork() path. */
+   The helper's own environment is the target's environment. On
+   startup the helper first writes CP_HELPER_ALIVE to fail_fd, so
+   that the parent can tell a helper that was never exec'd (EOF with
+   no ping; posix_spawn implementations such as glibc before 2.24 do
+   not report that failure themselves) from one that ran. After the
+   ping, the protocol is the same one the parent uses for the plain
+   fork() path: on any failure the helper writes its errno to fail_fd
+   and _exit()s; on success the exec of the target closes fail_fd
+   (FD_CLOEXEC) and the parent reads EOF. */
 
 #include "config.h"
 #include "cpexec.h"
@@ -85,6 +89,7 @@ int main(int argc, char **argv)
   char **target_argv;
   char **sh_argv;
   int errnum = EINVAL;
+  int alive = CP_HELPER_ALIVE;
   int i;
   int idx = 1;
   int min_argc;
@@ -94,6 +99,12 @@ int main(int argc, char **argv)
     _exit(127);
 
   fail_fd = atoi(argv[idx++]);
+
+  /* Tell the parent we are alive before doing anything else; it needs
+     the ping to know that the exec of the helper itself succeeded */
+  while (write(fail_fd, &alive, sizeof(alive)) < 0 && errno == EINTR)
+    ;
+
   pipe_count = atoi(argv[idx++]);
 
   if (pipe_count != 2 && pipe_count != 3)

@@ -37,6 +37,17 @@ exception statement from your version. */
 #ifndef _CLASSPATH_EXEC_H_INCLUDED
 #define _CLASSPATH_EXEC_H_INCLUDED
 
+/* Value written to the failure pipe by the spawn helper as soon as it
+   starts, before the outcome of the target exec is known. The parent
+   uses it to detect posix_spawn implementations that do not report a
+   failed exec of the helper itself (e.g. glibc before 2.24): there
+   the spawn appears to succeed and the child just exits, so without
+   this ping the resulting EOF on the pipe would be indistinguishable
+   from a successful exec of the target. The value is the ASCII string
+   "CPSH", a distinctive bit pattern that cannot be a valid errno
+   value. */
+#define CP_HELPER_ALIVE 0x43505348
+
 /* Close the first numFds file descriptors listed in fds. */
 void cp_close_all_fds (int *fds, int numFds);
 

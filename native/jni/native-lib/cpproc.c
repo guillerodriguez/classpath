@@ -132,7 +132,9 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 
   /* Extra pipe used by the child (or the helper) to report a failed
      chdir or exec to the parent. On success the final exec closes the
-     write end (FD_CLOEXEC) and the parent reads EOF. */
+     write end (FD_CLOEXEC) and the parent reads EOF. In posix_spawn
+     mode the helper additionally announces itself on this pipe with
+     CP_HELPER_ALIVE as soon as it starts. */
   if (pipe(fail_fds) < 0)
     {
       int err = errno;
@@ -260,6 +262,40 @@ int cpproc_forkAndExec (char * const *commandLine, char * const * newEnviron,
 
   free(sh_argv);
   close(fail_fds[1]);
+
+#ifdef CP_USE_POSIX_SPAWN
+  if (do_spawn)
+    {
+      /* Require an aliveness ping from the helper before reading the
+	 exec outcome. Some posix_spawn implementations (e.g. glibc
+	 before 2.24) do not report a failed exec of the helper to
+	 the caller: the spawn appears to succeed and the child just
+	 exits, closing the pipe, which without the ping would be
+	 indistinguishable from a successful exec of the target.
+	 (OpenJDK handles the same problem the same way, see
+	 JDK-8223777.) */
+      do
+	{
+	  n = read(fail_fds[0], &errnum, sizeof(errnum));
+	}
+      while (n < 0 && errno == EINTR);
+
+      if (n != (ssize_t) sizeof(errnum) || errnum != CP_HELPER_ALIVE)
+	{
+	  int status;
+
+	  /* The helper was never exec'd; reap the failed child. The
+	     real errno is unknowable here, so report the most likely
+	     cause of a failed helper exec. */
+	  while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+	    ;
+
+	  close(fail_fds[0]);
+	  cp_close_all_fds(local_fds, pipe_count * 2);
+	  return (n == 0) ? ENOENT : EIO;
+	}
+    }
+#endif
 
   /* Wait for the outcome of the exec: EOF if it succeeded, the
      child's errno if not */
